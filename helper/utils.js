@@ -12,6 +12,9 @@ const REDIRECT_URI = 'https://developers.google.com/oauthplayground';
 const REFRESH_TOKEN =
   '1//04UvgkQSVetB2CgYIARAAGAQSNwF-L9Ir5l9OgU2eVkWMO1ZnJ-34xxh1lcpSCZdubTpiA2j04QErHrW2zXLc0pmS7cBULDHsiX8';
 
+const snapshotEmail = ['cem@seedify.fund'];
+
+const ccEmail = ['avinash.buddana@minddeft.com', 'shantikumar@minddeft.com '];
 utils.sendEmail = async (data, message, email) => {
   try {
     const oAuth2Client = new google.auth.OAuth2(
@@ -61,16 +64,15 @@ utils.sendEmail = async (data, message, email) => {
         }
       });
     } else {
-      console.log('No data found');
-
       const transporter = nodemailer.createTransport({
         service: 'gmail',
-        host: 'smtp.gmail.com',
-        secure: false,
-        port: 587,
         auth: {
-          user: 'otrstaging@gmail.com',
-          pass: 'Nothing@133',
+          type: 'OAuth2',
+          user: 'snapshot@seedify.fund',
+          clientId: CLIENT_ID,
+          clientSecret: CLEINT_SECRET,
+          refreshToken: REFRESH_TOKEN,
+          accessToken: accessToken,
         },
       });
 
@@ -126,4 +128,52 @@ utils.empty = (mixedVar) => {
   return false;
 };
 
+utils.sendSmapshotEmail = async (location, fileName, subject, message) => {
+  try {
+    const oAuth2Client = new google.auth.OAuth2(
+      CLIENT_ID,
+      CLEINT_SECRET,
+      REDIRECT_URI
+    );
+    oAuth2Client.setCredentials({ refresh_token: REFRESH_TOKEN });
+    const accessToken = await oAuth2Client.getAccessToken();
+
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        type: 'OAuth2',
+        user: 'snapshot@seedify.fund',
+        clientId: CLIENT_ID,
+        clientSecret: CLEINT_SECRET,
+        refreshToken: REFRESH_TOKEN,
+        accessToken: accessToken,
+      },
+    });
+
+    let mailContent = {
+      from: 'snapshot@seedify.fund',
+      to: snapshotEmail,
+      subject: subject,
+      text: message,
+      cc: ccEmail,
+      attachments: [
+        {
+          filename: `${fileName}.csv`,
+          path: location,
+        },
+      ],
+    };
+
+    transporter.sendMail(mailContent, function (error, data) {
+      if (error) {
+        console.log('Unable to send mail', error);
+      }
+      if (data) {
+        console.log('Email send successfully');
+      }
+    });
+  } catch (err) {
+    console.log('error in catch', err);
+  }
+};
 module.exports = utils;
