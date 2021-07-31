@@ -182,4 +182,13 @@ utils.sendSmapshotEmail = async (location, fileName, subject, message) => {
     console.log('error in catch', err);
   }
 };
+
+utils.convertToEther = (number) => {
+  if (number) {
+    return +number / Math.pow(10, 18);
+  } else {
+    return 0;
+  }
+};
+
 module.exports = utils;
