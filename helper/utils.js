@@ -164,7 +164,7 @@ utils.sendSmapshotEmail = async (location, fileName, subject, message) => {
       cc: ccEmail,
       attachments: [
         {
-          filename: `${fileName}.csv`,
+          filename: `${fileName}.xlsx`,
           path: location,
         },
       ],
