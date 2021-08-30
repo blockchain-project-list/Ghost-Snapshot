@@ -197,4 +197,13 @@ utils.convertToEther = (number) => {
   }
 };
 
+utils.toTruncFixed = (value, n) => {
+  return toTrunc(value, n).toFixed(n);
+};
+
+function toTrunc(value, n) {
+  x = (value.toString() + '.0').split('.');
+  return parseFloat(x[0] + '.' + x[1].substr(0, n));
+}
+
 module.exports = utils;
