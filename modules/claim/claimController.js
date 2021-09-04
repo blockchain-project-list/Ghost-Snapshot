@@ -24,6 +24,7 @@ ClaimCtr.addNewClaim = async (req, res) => {
 
     if (checkClaimAlreadyAdded) {
       checkClaimAlreadyAdded.amount += +amount;
+      checkClaimAlreadyAdded.timestamp = timestamp;
 
       await checkClaimAlreadyAdded.save();
 
