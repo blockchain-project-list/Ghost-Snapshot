@@ -12,21 +12,21 @@ const REDIRECT_URI = 'https://developers.google.com/oauthplayground';
 const REFRESH_TOKEN =
   '1//04UvgkQSVetB2CgYIARAAGAQSNwF-L9Ir5l9OgU2eVkWMO1ZnJ-34xxh1lcpSCZdubTpiA2j04QErHrW2zXLc0pmS7cBULDHsiX8';
 
-// const snapshotEmail = [
-//   'cem@seedify.fund',
-//   'gsconsultantservices@gmail.com',
-//   ' berk@seedify.fund',
-// ];
-const snapshotEmail = ['avinash.buddana@minddeft.com'];
+const snapshotEmail = [
+  'cem@seedify.fund',
+  'gsconsultantservices@gmail.com',
+  ' berk@seedify.fund',
+];
+// const snapshotEmail = ['avinash.buddana@minddeft.com'];
 
-// const ccEmail = [
-//   'avinash.buddana@minddeft.com',
-//   'shantikumar@minddeft.com',
-//   'chaitanya.krishna@minddeft.com',
-//   'rishabh.katheria@minddeft.net',
-// ];
+const ccEmail = [
+  'avinash.buddana@minddeft.com',
+  'shantikumar@minddeft.com',
+  'chaitanya.krishna@minddeft.com',
+  'rishabh.katheria@minddeft.net',
+];
 
-const ccEmail = ['avinash.buddana@minddeft.com'];
+// const ccEmail = ['avinash.buddana@minddeft.com'];
 utils.sendEmail = async (data, message, email) => {
   try {
     const oAuth2Client = new google.auth.OAuth2(
