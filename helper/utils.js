@@ -19,14 +19,17 @@ const REFRESH_TOKEN =
 // ];
 const snapshotEmail = ['avinash.buddana@minddeft.com'];
 
+// const ccEmail = [
+//   'avinash.buddana@minddeft.com',
+//   'shantikumar@minddeft.com',
+//   'chaitanya.krishna@minddeft.com',
+//   'rishabh.katheria@minddeft.net',
+// ];
+
 const ccEmail = [
   'avinash.buddana@minddeft.com',
-  'shantikumar@minddeft.com',
   'chaitanya.krishna@minddeft.com',
-  'rishabh.katheria@minddeft.net',
 ];
-
-// const ccEmail = ['avinash.buddana@minddeft.com'];
 utils.sendEmail = async (data, message, email) => {
   try {
     const oAuth2Client = new google.auth.OAuth2(
