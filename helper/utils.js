@@ -1,6 +1,7 @@
 const nodemailer = require('nodemailer');
 const emailJson = require('./email.json');
 const { google } = require('googleapis');
+const Web3 = require('web3');
 
 const ObjectsToCsv = require('objects-to-csv');
 const utils = {};
@@ -190,7 +191,9 @@ utils.sendSmapshotEmail = async (location, fileName, subject, message) => {
 
 utils.convertToEther = (number) => {
   if (number) {
-    return +number / Math.pow(10, 18);
+    let value = parseFloat(Web3.utils.fromWei(number)).toFixed(5);
+
+    return +value;
   } else {
     return 0;
   }
