@@ -842,13 +842,11 @@ UserCtr.getUserBalances = async (req, res) => {
 
         queue.push(
           { address: getUsers[i].walletAddress, _id: getUsers[i]._id },
-          (error, { task, remaining }) => {
+          (error) => {
             if (error) {
-              console.log(`An error occurred while processing task ${task}`);
+              console.log(`An error occurred while processing task `);
             } else {
-              console.log(
-                `Finished processing task ${task}. ${remaining} tasks remaining`
-              );
+              console.log(`Finished processing task . `);
             }
           }
         );
