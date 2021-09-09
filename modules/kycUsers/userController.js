@@ -834,15 +834,24 @@ UserCtr.getUserBalances = async (req, res) => {
           const remaining = queue.length();
           console.log('remaining is:', remaining);
           // completed(null, { remaining });
-        }, 1000);
-      }, 5);
+        }, 2000);
+      }, 3);
 
       for (let i = 0; i < getUsers.length; i++) {
         console.log(`${i} of ${getUsers.length}`);
-        const getBalance = queue.push({
-          address: getUsers[i].walletAddress,
-          _id: getUsers[i]._id,
-        });
+
+        queue.push(
+          { address: getUsers[i].walletAddress, _id: getUsers[i]._id },
+          (error, { task, remaining }) => {
+            if (error) {
+              console.log(`An error occurred while processing task ${task}`);
+            } else {
+              console.log(
+                `Finished processing task ${task}. ${remaining} tasks remaining`
+              );
+            }
+          }
+        );
         // const userBal = JSON.stringify(getBalance);
         // getBalance.walletAddress = getUsers[i].walletAddress;
         // getBalance.tier = await SyncHelper.getUserTier(+getBalance.eTokens);
