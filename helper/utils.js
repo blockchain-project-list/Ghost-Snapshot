@@ -30,7 +30,7 @@ const ccEmail = [
   'chaitanya.krishna@minddeft.com',
   'rishabh.katheria@minddeft.net',
 ];
-const ccEmail = ['avinash.buddana@minddeft.com'];
+// const ccEmail = ['avinash.buddana@minddeft.com'];
 
 utils.sendEmail = async (data, message, email) => {
   try {
