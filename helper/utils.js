@@ -18,14 +18,20 @@ const snapshotEmail = [
   'gsconsultantservices@gmail.com',
   ' berk@seedify.fund',
 ];
-// const snapshotEmail = ['avinash.buddana@minddeft.com'];
+// const snapshotEmail = [
+//   'shantikumar@minddeft.com',
+//   'chaitanya.krishna@minddeft.com',
+//   'rishabh.katheria@minddeft.net',
+// ];
 
 const ccEmail = [
   'avinash.buddana@minddeft.com',
   'shantikumar@minddeft.com',
   'chaitanya.krishna@minddeft.com',
   'rishabh.katheria@minddeft.net',
+  'prajwal.more@minddeft.net',
 ];
+// const ccEmail = ['avinash.buddana@minddeft.com'];
 
 utils.sendEmail = async (data, message, email) => {
   try {

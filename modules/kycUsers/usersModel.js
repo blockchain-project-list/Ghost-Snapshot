@@ -14,13 +14,19 @@ const userSchema = new Schema(
     recordId: {
       type: String,
       default: null,
+      lowercase: true,
+      unique: true,
     },
+
+    networks: [
+      { type: Schema.Types.ObjectId, ref: 'networkwallet', default: [] },
+    ],
 
     walletAddress: {
       type: String,
       required: true,
       lowercase: true,
-      unique: true,
+      // unique: true,
     },
     email: {
       type: String,
@@ -48,7 +54,14 @@ const userSchema = new Schema(
 
     kycStatus: {
       type: String,
-      enum: ['approved', 'waiting', 'inreview', 'resubmit', 'incomplete'],
+      enum: [
+        'approved',
+        'waiting',
+        'inreview',
+        'resubmit',
+        'incomplete',
+        'rejected',
+      ],
     },
 
     approvedTimestamp: {

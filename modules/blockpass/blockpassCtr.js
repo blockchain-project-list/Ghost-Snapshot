@@ -58,9 +58,9 @@ blockPassCtr.getApprovedUserList = async (req, res) => {
 
           const email = getRecords.records[i].identities.email.value;
           const name = `${getRecords.records[i].identities.given_name.value}${getRecords.records[i].identities.family_name.value} `;
-
+          const recordId = getRecords.records[i].recordId.toLowerCase().trim();
           const checkUserAvalaible = await UserModal.findOne({
-            walletAddress: userAddress.toLowerCase().trim(),
+            recordId: recordId.toLowerCase().trim(),
           });
 
           if (getRecords.records[i].status === 'approved') {
@@ -70,6 +70,9 @@ blockPassCtr.getApprovedUserList = async (req, res) => {
 
           if (checkUserAvalaible) {
             checkUserAvalaible.kycStatus = getRecords.records[i].status;
+            checkUserAvalaible.name = name;
+            checkUserAvalaible.email = email;
+            checkUserAvalaible.recordId = getRecords.records[i].recordId;
             checkUserAvalaible.approvedTimestamp = approvedDate;
             checkUserAvalaible.walletAddress = userAddress;
             // checkUserAvalaible.balObj = balObj;
@@ -275,7 +278,17 @@ blockPassCtr.checkKycVerified = async (req, res) => {
   try {
     const checkIsVerified = await UserModal.findOne({
       walletAddress: req.params.address.toLowerCase(),
-    });
+    })
+      .populate({
+        path: 'networks',
+        select: { createdAt: 0, updatedAt: 0 },
+        populate: {
+          path: 'networkId',
+          select: { _id: 1, networkName: 1, logo: 1 },
+          model: 'skills',
+        },
+      })
+      .sort({ createdAt: -1 });
 
     if (checkIsVerified) {
       res.status(200).json({

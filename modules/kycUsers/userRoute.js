@@ -41,4 +41,28 @@ userRoute.get('/getUserStake', getUserStaked);
 const getSfund = [UserCtr.getUserBalances];
 userRoute.get('/getSfund', getSfund);
 
+// get ape token balnce
+const getApeBalance = [web3Helper.getApeFarmingBalance];
+userRoute.get('/getApeBalance', getApeBalance);
+
+// login user
+const login = [UserMiddleware.loginCheck, UserCtr.login];
+userRoute.post('/login', login);
+
+// genrate nonce
+const genrateNonce = [UserCtr.genrateNonce];
+userRoute.get('/genrateNonce/:address', genrateNonce);
+
+// add new wallet address of user
+const addNewWalletAddresses = [
+  Auth.userAuthetication,
+  UserMiddleware.validateAddWallet,
+  UserCtr.addUserNetwork,
+];
+userRoute.post('/addWallet', addNewWalletAddresses);
+
+// get it by group
+const getByGroup = [UserCtr.getByGroups];
+userRoute.get('/group', getByGroup);
+
 module.exports = userRoute;

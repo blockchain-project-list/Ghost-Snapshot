@@ -24,7 +24,7 @@ ClaimCtr.addNewClaim = async (req, res) => {
 
     if (checkClaimAlreadyAdded) {
       checkClaimAlreadyAdded.amount += +amount;
-      checkClaimAlreadyAdded.timestamp = +timestamp;
+      // checkClaimAlreadyAdded.timestamp = +timestamp;
       await checkClaimAlreadyAdded.save();
 
       return res.status(200).json({
@@ -53,7 +53,7 @@ ClaimCtr.addNewClaim = async (req, res) => {
     }
   } catch (err) {
     return res.status(500).json({
-      message: 'DB_ERROR',
+      message: 'Something Went Wrong ',
       status: true,
       err: err.message ? err.message : err,
     });
