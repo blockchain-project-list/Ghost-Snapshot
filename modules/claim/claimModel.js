@@ -12,13 +12,13 @@ const claimSchema = new Schema(
     networkName: {
       type: String,
       required: true,
-      enum: ['polygon', 'binance', 'ethereum'],
+      enum: ['polygon', 'binance', 'ethereum', 'solana', 'avalanche'],
       lowercase: true,
     },
     networkSymbol: {
       type: String,
       required: true,
-      enum: ['BNB', 'ETH', 'MATIC'],
+      enum: ['BNB', 'ETH', 'MATIC', 'SOL', 'AVAX'],
     },
     networkId: {
       type: String,
