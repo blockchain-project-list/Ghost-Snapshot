@@ -7,9 +7,9 @@ const BlockPassCtr = require('../../modules/blockpass/blockpassCtr');
 //   DailyCron.getContractsData(req, res);
 // });
 
-cron.schedule('0 */12 * * *', (req, res) => {
-  BlockPassCtr.getApprovedUserList(req, res);
-});
+// cron.schedule('0 */12 * * *', (req, res) => {
+//   BlockPassCtr.getApprovedUserList(req, res);
+// });
 
 // cron.schedule('0 */12 * * *', (req, res) => {
 //   UserCtr.getUserBalances(req, res);
