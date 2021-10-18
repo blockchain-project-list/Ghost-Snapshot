@@ -1292,7 +1292,7 @@ UserCtr.updateUserNetwork = async (req, res) => {
           await client.del(nonce);
         } else {
           return res.status(400).json({
-            message: 'Kyc Not yet Verified',
+            message: 'Nonce and signature not matching',
             status: false,
           });
         }
