@@ -1248,6 +1248,8 @@ UserCtr.updateUserNetwork = async (req, res) => {
     if (signer) {
       const fetchRedisData = await client.get(nonce);
 
+      console.log('redis data is:', nonce);
+
       if (fetchRedisData) {
         const parsedRedisData = JSON.parse(fetchRedisData);
 
