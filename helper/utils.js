@@ -27,7 +27,11 @@ const snapshotEmail = ['avinash.buddana@minddeft.com'];
 //   'rishabh.katheria@minddeft.net',
 //   'prajwal.more@minddeft.net',
 // ];
-const ccEmail = ['avinash.buddana@minddeft.com'];
+const ccEmail = [
+  'avinash.buddana@minddeft.com',
+  'rishabh.katheria@minddeft.net',
+  'chaitanya.krishna@minddeft.com',
+];
 
 utils.sendEmail = async (data, message, email) => {
   try {
