@@ -52,7 +52,7 @@ web3Helper.getUserStakedBalance = async (walletAddress, ContractAddress) => {
 
       resolve(getStakedBalance);
     } catch (err) {
-      console.log('error in web3 data ', err);
+      console.log('error in web3 stacked data ', err);
 
       resolve(0);
     }
