@@ -79,7 +79,6 @@ UserMiddleware.checkWalletAlreadyAdded = async (req, res, next) => {
 UserMiddleware.checkProcessPending = async (req, res, next) => {
   try {
     const checkAlreadyPending = await client.get('snapshot');
-    console.log('checkAlreadyPending', checkAlreadyPending);
 
     await client.del('snapshot');
     if (checkAlreadyPending) {
