@@ -103,6 +103,8 @@ web3Helper.getUserFarmedBalance = async (walletAddress, ContractAddress) => {
       const getStakedBalance = await contract.methods
         .userDeposits(walletAddress)
         .call();
+
+      console.log('getStakedBalance', getStakedBalance);
       const value = Utils.convertToEther(getStakedBalance);
       resolve(value);
     } catch (err) {
