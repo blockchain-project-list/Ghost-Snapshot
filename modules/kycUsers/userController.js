@@ -516,6 +516,8 @@ async function getUserBalance(
               pool[i].contractAddress
             );
 
+            console.log('getLockedTokens', getLockedTokens);
+
             const totalSupplyCount =
               getLockedTokens / getLiquidityData.totalSupply;
 
