@@ -658,11 +658,11 @@ async function getUserBalance(
       // );
 
       // get previous staking from tosdis
-      const getPreviousTosdisBalance =
-        web3Helper.getTosdisStakingBalWithContract(
-          walletAddress,
-          process.env.PREVIOUS_STAKING_TOSDIS
-        );
+      // const getPreviousTosdisBalance =
+      //   web3Helper.getTosdisStakingBalWithContract(
+      //     walletAddress,
+      //     process.env.PREVIOUS_STAKING_TOSDIS
+      //   );
 
       await Promise.all([
         getFarmingBalance,
