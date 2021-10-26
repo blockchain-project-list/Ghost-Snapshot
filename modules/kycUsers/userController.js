@@ -863,7 +863,6 @@ UserCtr.fetchLiquidityLocked = async (contractAddress) => {
         getTotalSupplyUrl = `https://api-testnet.bscscan.com/api?module=stats&action=tokensupply&contractaddress=${contractAddress}&apikey=${process.env.BSC_API_KEY}`;
         tokenBalanceUrl = `https://api-testnet.bscscan.com/api?module=account&action=tokenbalance&contractaddress=0x477bc8d23c634c154061869478bce96be6045d12&address=${contractAddress}&tag=latest&apikey=${process.env.BSC_API_KEY}`;
       } else {
-        console.log('in else');
         getTotalSupplyUrl = `https://api.bscscan.com/api?module=stats&action=tokensupply&contractaddress=${contractAddress}&apikey=${process.env.BSC_API_KEY}`;
         tokenBalanceUrl = `https://api.bscscan.com/api?module=account&action=tokenbalance&contractaddress=0x477bc8d23c634c154061869478bce96be6045d12&address=${contractAddress}&tag=latest&apikey=${process.env.BSC_API_KEY}`;
       }
