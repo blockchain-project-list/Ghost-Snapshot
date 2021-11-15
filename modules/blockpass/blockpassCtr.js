@@ -58,10 +58,19 @@ blockPassCtr.getApprovedUserList = async (req, res) => {
 
           const email = getRecords.records[i].identities.email.value;
           const name = `${getRecords.records[i].identities.given_name.value}${getRecords.records[i].identities.family_name.value} `;
+          const country = getRecords.records[i].identities?.address.value
+            ? JSON.parse(getRecords.records[i].identities?.address.value)
+            : null;
           const recordId = getRecords.records[i].recordId.toLowerCase().trim();
           const checkUserAvalaible = await UserModal.findOne({
             recordId: recordId.toLowerCase().trim(),
           });
+
+          let countryCode = null;
+
+          if (country) {
+            countryCode = country.country ? country.country : null;
+          }
 
           if (getRecords.records[i].status === 'approved') {
             const approval = Date.parse(getRecords.records[i].approvedDate);
@@ -75,10 +84,11 @@ blockPassCtr.getApprovedUserList = async (req, res) => {
             checkUserAvalaible.recordId = getRecords.records[i].recordId;
             checkUserAvalaible.approvedTimestamp = approvedDate;
             checkUserAvalaible.walletAddress = userAddress;
+            checkUserAvalaible.country = countryCode;
             // checkUserAvalaible.balObj = balObj;
             // checkUserAvalaible.totalbalance = total;
             // checkUserAvalaible.tier = syncHelper.getUserTier(0);
-
+            checkUserAvalaible.markModified('country');
             await checkUserAvalaible.save();
             // itreateBlocks(i + 1);
           } else {
@@ -90,6 +100,7 @@ blockPassCtr.getApprovedUserList = async (req, res) => {
               totalbalance: total,
               balObj: balObj,
               kycStatus: getRecords.records[i].status,
+              country: countryCode,
               approvedTimestamp: approvedDate,
               tier: syncHelper.getUserTier(0),
             });
@@ -137,38 +148,42 @@ blockPassCtr.getApprovedUserList = async (req, res) => {
 
 // get data from block pass
 async function getDatafromBlockPass(skip) {
-  console.log('skip is:', skip);
-  let url = `https://kyc.blockpass.org/kyc/1.0/connect/${process.env.BLOCKPASS_CLIENT_ID}/applicants?limit=10`;
-  if (skip > 0) {
-    url = `https://kyc.blockpass.org/kyc/1.0/connect/${process.env.BLOCKPASS_CLIENT_ID}/applicants?limit=10&skip=${skip}`;
-  }
+  try {
+    console.log('skip is:', skip);
+    let url = `https://kyc.blockpass.org/kyc/1.0/connect/${process.env.BLOCKPASS_CLIENT_ID}/applicants?limit=10`;
+    if (skip > 0) {
+      url = `https://kyc.blockpass.org/kyc/1.0/connect/${process.env.BLOCKPASS_CLIENT_ID}/applicants?limit=10&skip=${skip}`;
+    }
 
-  var config = {
-    method: 'get',
-    url: url,
-    headers: {
-      Authorization: `${process.env.BLOCKPASS_AUTHORIZATION}`,
-    },
-  };
-
-  const getBlockPassData = await axios(config);
-  if (getBlockPassData && getBlockPassData.status === 200) {
-    // console.log(getBlockPassData.data.data);
-    const data = getBlockPassData.data.data.records;
-    const total = getBlockPassData.data.data.total;
-    const skip = getBlockPassData.data.data.skip;
-
-    return {
-      records: data,
-      total: total,
-      skip: skip,
+    var config = {
+      method: 'get',
+      url: url,
+      headers: {
+        Authorization: `${process.env.BLOCKPASS_AUTHORIZATION}`,
+      },
     };
-  } else {
-    return {
-      records: [],
-      total: 0,
-      skip: 0,
-    };
+
+    const getBlockPassData = await axios(config);
+    if (getBlockPassData && getBlockPassData.status === 200) {
+      // console.log(getBlockPassData.data.data);
+      const data = getBlockPassData.data.data.records;
+      const total = getBlockPassData.data.data.total;
+      const skip = getBlockPassData.data.data.skip;
+
+      return {
+        records: data,
+        total: total,
+        skip: skip,
+      };
+    } else {
+      return {
+        records: [],
+        total: 0,
+        skip: 0,
+      };
+    }
+  } catch (err) {
+    console.log('Error in blockpass api ', err);
   }
 }
 
@@ -313,7 +328,7 @@ blockPassCtr.checkKycVerified = async (req, res) => {
         status: true,
         data: {
           kycStatus: false,
-          status: 'NOTREGISTERED',
+          status: 'NOT REGISTERED',
           data: {},
         },
       });

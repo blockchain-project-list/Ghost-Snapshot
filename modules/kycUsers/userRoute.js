@@ -1,6 +1,8 @@
 const express = require('express');
 const UserCtr = require('./userController');
-
+const multipart = require('connect-multiparty');
+const Utils = require('../../helper/utils');
+const multipartMiddleware = multipart();
 const UserMiddleware = require('./userMiddleware');
 
 const web3Helper = require('../../helper/web3Helper');
@@ -77,5 +79,23 @@ const updateWalletAddress = [
   UserCtr.updateUserNetwork,
 ];
 userRoute.put('/updateWallet', updateWalletAddress);
+
+// get seconday wallet address from csv
+const getSecondaryWalletAddress = [
+  multipartMiddleware,
+  UserCtr.getSecondayWalletAddresses,
+];
+userRoute.post('/secondaryWallet', getSecondaryWalletAddress);
+
+// get unique contries list
+const getUniqueCountries = [
+  Auth.isAuthenticatedUser,
+  UserCtr.listAllUniqueCountries,
+];
+userRoute.get('/getUniqueCountries', getUniqueCountries);
+
+// check is valid address
+const checkisValid = [Utils.checkAddressForSolana];
+userRoute.get('/checkIsValid', checkisValid);
 
 module.exports = userRoute;

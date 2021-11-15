@@ -8,15 +8,19 @@ const SyncHelper = require('../sync/syncHelper');
 const PoolsModel = require('../pools/poolsModel');
 const jwtUtil = require('../../helper/jwtUtils');
 const genrateSpreadSheet = require('../../helper/genrateSpreadsheet');
+const networkWallet = require('../network/networkModel');
 const asyncRedis = require('async-redis');
 const axios = require('axios');
 const ObjectsToCsv = require('objects-to-csv');
+const csv = require('fast-csv');
 const crypto = require('crypto');
 const config = require('../../config/config.json');
 const fs = require('fs');
 const Web3 = require('web3');
 const client = asyncRedis.createClient();
 const Async = require('async');
+const xlsx = require('node-xlsx');
+const networkModel = require('../network/networkModel');
 
 const UserCtr = {};
 
@@ -32,6 +36,10 @@ UserCtr.list = async (req, res) => {
 
     if (req.query.kycStatus) {
       query.kycStatus = req.query.kycStatus.toLowerCase().trim();
+    }
+
+    if (req.query.country) {
+      query.country = req.query.country.toLowerCase().trim();
     }
 
     if (req.query.address) {
@@ -169,7 +177,8 @@ UserCtr.genrateLotteryNumbers = async (req, res) => {
               Date.now() / 1000
             )} for ${fetchRecords.tier} and  snapshot Id ${
               fetchRecords._id
-            } with following file hash ${fetchRecords.fileHash}`
+            } with following file hash ${fetchRecords.fileHash}`,
+            'csv'
           );
           let userIds = [];
 
@@ -210,11 +219,34 @@ UserCtr.genrateLotteryNumbers = async (req, res) => {
 UserCtr.addCsv = async (req, res) => {
   try {
     console.log('add csv called');
-    const getUsers = await UserModel.find({
+
+    let query = {
       isActive: true,
       kycStatus: 'approved',
       tier: req.query.tier.toLowerCase().trim(),
-    });
+    };
+
+    if (req.query.country) {
+      query.country = { $ne: req.query.country.toLowerCase().trim() };
+    }
+
+    const getUsers = await UserModel.aggregate([
+      {
+        $match: query,
+      },
+      {
+        $group: {
+          _id: '$walletAddress',
+          doc: { $first: '$$ROOT' },
+        },
+      },
+      {
+        $replaceRoot: {
+          newRoot: '$doc',
+        },
+      },
+    ]);
+
     const userList = [];
     for (let i = 0; i < getUsers.length; i++) {
       userList.push({
@@ -252,7 +284,8 @@ UserCtr.addCsv = async (req, res) => {
         `./lottery/${fileName}.csv`,
         save._id,
         `snapshot for ${req.query.tier} taken at ${+new Date()} `,
-        `snapshot for ${req.query.tier} with file name ${save._id} with following file Hash ${hex}`
+        `snapshot for ${req.query.tier} with file name ${save._id} with following file Hash ${hex}`,
+        'csv'
       );
     }
 
@@ -320,6 +353,10 @@ UserCtr.getUsersStakedBalance = async (req, res) => {
       process.env.LIQUIDITY_ADDRESS
     );
 
+    const getBakeryLiquidityLocked = await UserCtr.fetchLiquidityLocked(
+      process.env.LP_BAKERY
+    );
+
     const getApeTokenLiquidityLocked = await UserCtr.fetchLiquidityLocked(
       process.env.LP_APE_ADDRESS
     );
@@ -334,8 +371,14 @@ UserCtr.getUsersStakedBalance = async (req, res) => {
     //   kycStatus: 'approved',
     // });
 
+    let query = { isActive: true, kycStatus: 'approved' };
+
+    if (req.query.country) {
+      query.country = { $ne: req.query.country.toLowerCase().trim() };
+    }
+
     const getUsers = await UserModel.aggregate([
-      { $match: { isActive: true, kycStatus: 'approved' } },
+      { $match: query },
       {
         $group: {
           _id: '$walletAddress',
@@ -375,12 +418,13 @@ UserCtr.getUsersStakedBalance = async (req, res) => {
           latestBlock,
           getLiquidityLocked.totalSupply,
           getLiquidityLocked.totalBalance,
-          getApeTokenLiquidityLocked
+          getApeTokenLiquidityLocked,
+          getBakeryLiquidityLocked,
+          getLiquidityLocked
         );
         const userBal = JSON.stringify(getBalance);
 
         getBalance.walletAddress = task.address;
-
         getBalance.tier = await SyncHelper.getUserTier(+getBalance.eTokens);
 
         console.log('getBalance.tier', getBalance.tier);
@@ -406,7 +450,7 @@ UserCtr.getUsersStakedBalance = async (req, res) => {
           console.log('remaining is:', remaining);
           // completed(null, { remaining });
         }, 2000);
-      }, 3);
+      }, 5);
 
       for (let i = 0; i < getUsers.length; i++) {
         console.log(`${i} of ${getUsers.length}`);
@@ -474,12 +518,14 @@ async function getUserBalance(
   endBlock,
   totalSupply,
   totalBalance,
-  apeLiquidity
+  apeLiquidity,
+  bakeryLiquidity,
+  panCakeLiquidity
 ) {
   return new Promise(async (resolve, reject) => {
     try {
       let pools = [];
-
+      let isInvested = false;
       if (pool.length) {
         for (let i = 0; i < pool.length; i++) {
           if (pool[i].contractType !== 'farming') {
@@ -504,12 +550,23 @@ async function getUserBalance(
               staked: +Utils.toTruncFixed(value, 3),
               loyalityPoints: points,
             });
+
+            if (+points > 0 && !isInvested) {
+              isInvested = true;
+            }
             // }
           } else {
             // if (pool[i].endDate > 0) {
-            const getLiquidityData = await UserCtr.checkRedis(
-              pool[i].lpTokenAddress
-            );
+            let getLiquidityData = {};
+
+            if (
+              pool[i].lpTokenAddress.toLowerCase() ===
+              process.env.LP_BAKERY.toLowerCase()
+            ) {
+              getLiquidityData = bakeryLiquidity;
+            } else {
+              getLiquidityData = panCakeLiquidity;
+            }
 
             console.log('getLiquidityData', getLiquidityData);
 
@@ -518,10 +575,8 @@ async function getUserBalance(
               pool[i].contractAddress
             );
 
-            console.log('getLockedTokens', getLockedTokens);
-
             const totalSupplyCount =
-              getLockedTokens / getLiquidityData.totalSupply;
+              getLockedTokens.farm / getLiquidityData.totalSupply;
 
             const transaction =
               totalSupplyCount * getLiquidityData.totalBalance;
@@ -533,7 +588,12 @@ async function getUserBalance(
               name: pool[i].poolName,
               staked: +Utils.toTruncFixed(transaction, 3),
               loyalityPoints: points,
+              // loyalityPoints: points + getLockedTokens.harvest,
             });
+
+            if (+points > 0 && !isInvested) {
+              isInvested = true;
+            }
             // }
           }
         }
@@ -614,164 +674,164 @@ async function getUserBalance(
       //     (+getFarmingFromPanCakeSwap * config.farmingPancakeSwap) / 100,
       // });
 
-      const getFarmingBalance = web3Helper.getTosdisFarmingBal(
-        walletAddress,
-        process.env.FARMING_ADDRESS
-      );
-
-      // get bakery balance
-      const bakeryBalance = web3Helper.getTosdisFarmingBal(
-        walletAddress,
-        process.env.FARMING_BAKERY
-      );
-
-      // get tosdis balance
-      const tosdisBalance = web3Helper.getTosdisStakingBal(walletAddress);
-
-      // get sfund bal
-      // const address = '0x74fa517715c4ec65ef01d55ad5335f90dce7cc87';
-      // const getSfund = getSfundBalance(address, walletAddress, endBlock);
-
-      const getSfund = web3Helper.sfundBalance(walletAddress);
-
-      // get liquity balance
-      const getLiquidity = getLiquidityBalance(walletAddress, endBlock);
-
-      // const getFarmingFromPanCakeSwap = UserCtr.getPancakeSwapInvestment(
+      // const getFarmingBalance = web3Helper.getTosdisFarmingBal(
       //   walletAddress,
-      //   totalSupply,
-      //   totalBalance
+      //   process.env.FARMING_ADDRESS
       // );
 
-      // ape farming
-      const apeBalance = web3Helper.getApeFarmingBalance(
-        walletAddress,
-        process.env.APE_FARM_ADDRESS
-      );
-
-      // // get previous farmig pool tokens
-      // const getPreviousFarmingBalance = web3Helper.getTosdisFarmingBal(
+      // // get bakery balance
+      // const bakeryBalance = web3Helper.getTosdisFarmingBal(
       //   walletAddress,
-      //   process.env.PREVIOUS_FARMING_ADDRESS
+      //   process.env.FARMING_BAKERY
       // );
 
-      // // get previous bakery pool tokens
-      // const getPreviousBakeryBalance = web3Helper.getTosdisFarmingBal(
+      // // get tosdis balance
+      // const tosdisBalance = web3Helper.getTosdisStakingBal(walletAddress);
+
+      // // get sfund bal
+      // // const address = '0x74fa517715c4ec65ef01d55ad5335f90dce7cc87';
+      // // const getSfund = getSfundBalance(address, walletAddress, endBlock);
+
+      // const getSfund = web3Helper.sfundBalance(walletAddress);
+
+      // // get liquity balance
+      // const getLiquidity = getLiquidityBalance(walletAddress, endBlock);
+
+      // // const getFarmingFromPanCakeSwap = UserCtr.getPancakeSwapInvestment(
+      // //   walletAddress,
+      // //   totalSupply,
+      // //   totalBalance
+      // // );
+
+      // // ape farming
+      // const apeBalance = web3Helper.getApeFarmingBalance(
       //   walletAddress,
-      //   process.env.PREVIOUS_FARMING_BAKERY
+      //   process.env.APE_FARM_ADDRESS
       // );
 
-      // get previous staking from tosdis
-      // const getPreviousTosdisBalance =
-      //   web3Helper.getTosdisStakingBalWithContract(
-      //     walletAddress,
-      //     process.env.PREVIOUS_STAKING_TOSDIS
-      //   );
+      // // // get previous farmig pool tokens
+      // // const getPreviousFarmingBalance = web3Helper.getTosdisFarmingBal(
+      // //   walletAddress,
+      // //   process.env.PREVIOUS_FARMING_ADDRESS
+      // // );
 
-      await Promise.all([
-        getFarmingBalance,
-        bakeryBalance,
-        tosdisBalance,
-        getSfund,
-        getLiquidity,
-        apeBalance,
-      ]).then((result) => {
-        if (result.length) {
-          for (let k = 0; k < result.length; k++) {
-            if (k === 0) {
-              const totalSupplyCount = +result[k] / totalSupply;
+      // // // get previous bakery pool tokens
+      // // const getPreviousBakeryBalance = web3Helper.getTosdisFarmingBal(
+      // //   walletAddress,
+      // //   process.env.PREVIOUS_FARMING_BAKERY
+      // // );
 
-              const farmingTransaction = +totalSupplyCount * totalBalance;
+      // // get previous staking from tosdis
+      // // const getPreviousTosdisBalance =
+      // //   web3Helper.getTosdisStakingBalWithContract(
+      // //     walletAddress,
+      // //     process.env.PREVIOUS_STAKING_TOSDIS
+      // //   );
 
-              pools.push({
-                name: 'farming',
-                staked: +Utils.toTruncFixed(farmingTransaction, 3),
-                loyalityPoints:
-                  +farmingTransaction +
-                  (+farmingTransaction * config.farming) / 100,
-              });
-            } else if (k === 1) {
-              const bakeryCount = +result[k] / totalSupply;
+      // await Promise.all([
+      //   getFarmingBalance,
+      //   bakeryBalance,
+      //   tosdisBalance,
+      //   getSfund,
+      //   getLiquidity,
+      //   apeBalance,
+      // ]).then((result) => {
+      //   if (result.length) {
+      //     for (let k = 0; k < result.length; k++) {
+      //       if (k === 0) {
+      //         const totalSupplyCount = +result[k] / totalSupply;
 
-              const bakeryTransaction = +bakeryCount * totalBalance;
+      //         const farmingTransaction = +totalSupplyCount * totalBalance;
 
-              pools.push({
-                name: 'bakery',
-                staked: +Utils.toTruncFixed(bakeryTransaction, 3),
-                loyalityPoints:
-                  +bakeryTransaction +
-                  (+bakeryTransaction * config.bakery) / 100,
-              });
-            } else if (k === 2) {
-              pools.push({
-                name: 'tosdis-staking',
-                staked: +Utils.toTruncFixed(result[k], 3),
-                loyalityPoints: +result[k] + (+result[k] * config.tosdis) / 100,
-              });
-            } else if (k === 3) {
-              pools.push({
-                name: 'sfund',
-                staked: +Utils.toTruncFixed(result[k], 3),
-                loyalityPoints: +result[k] + (+result[k] * config.sfund) / 100,
-              });
-            } else if (k === 4) {
-              pools.push({
-                name: 'liquidity',
-                staked: +Utils.toTruncFixed(result[k], 3),
-                loyalityPoints:
-                  +result[k] + (+result[k] * config.liquidity) / 100,
-              });
-            } else if (k === 5) {
-              const totalSupplyCount = +result[k] / apeLiquidity.totalSupply;
+      //         pools.push({
+      //           name: 'farming',
+      //           staked: +Utils.toTruncFixed(farmingTransaction, 3),
+      //           loyalityPoints:
+      //             +farmingTransaction +
+      //             (+farmingTransaction * config.farming) / 100,
+      //         });
+      //       } else if (k === 1) {
+      //         const bakeryCount = +result[k] / totalSupply;
 
-              const farmingTransaction =
-                +totalSupplyCount * apeLiquidity.totalBalance;
+      //         const bakeryTransaction = +bakeryCount * totalBalance;
 
-              pools.push({
-                name: 'ape Farming',
-                staked: +Utils.toTruncFixed(farmingTransaction, 3),
-                loyalityPoints:
-                  +farmingTransaction +
-                  (+farmingTransaction * config.ape) / 100,
-              });
-            }
-            //  else if (k === 7) {
-            //   const totalSupplyCount = +result[k] / totalSupply;
+      //         pools.push({
+      //           name: 'bakery',
+      //           staked: +Utils.toTruncFixed(bakeryTransaction, 3),
+      //           loyalityPoints:
+      //             +bakeryTransaction +
+      //             (+bakeryTransaction * config.bakery) / 100,
+      //         });
+      //       } else if (k === 2) {
+      //         pools.push({
+      //           name: 'tosdis-staking',
+      //           staked: +Utils.toTruncFixed(result[k], 3),
+      //           loyalityPoints: +result[k] + (+result[k] * config.tosdis) / 100,
+      //         });
+      //       } else if (k === 3) {
+      //         pools.push({
+      //           name: 'sfund',
+      //           staked: +Utils.toTruncFixed(result[k], 3),
+      //           loyalityPoints: +result[k] + (+result[k] * config.sfund) / 100,
+      //         });
+      //       } else if (k === 4) {
+      //         pools.push({
+      //           name: 'liquidity',
+      //           staked: +Utils.toTruncFixed(result[k], 3),
+      //           loyalityPoints:
+      //             +result[k] + (+result[k] * config.liquidity) / 100,
+      //         });
+      //       } else if (k === 5) {
+      //         const totalSupplyCount = +result[k] / apeLiquidity.totalSupply;
 
-            //   const farmingTransaction = +totalSupplyCount * totalBalance;
+      //         const farmingTransaction =
+      //           +totalSupplyCount * apeLiquidity.totalBalance;
 
-            //   pools.push({
-            //     name: 'previous-farming',
-            //     staked: +Utils.toTruncFixed(farmingTransaction, 3),
-            //     loyalityPoints:
-            //       +farmingTransaction +
-            //       (+farmingTransaction * config.farming) / 100,
-            //   });
-            // } else if (k === 8) {
-            //   const bakeryCount = +result[k] / totalSupply;
+      //         pools.push({
+      //           name: 'ape Farming',
+      //           staked: +Utils.toTruncFixed(farmingTransaction, 3),
+      //           loyalityPoints:
+      //             +farmingTransaction +
+      //             (+farmingTransaction * config.ape) / 100,
+      //         });
+      //       }
+      //       //  else if (k === 7) {
+      //       //   const totalSupplyCount = +result[k] / totalSupply;
 
-            //   const bakeryTransaction = +bakeryCount * totalBalance;
+      //       //   const farmingTransaction = +totalSupplyCount * totalBalance;
 
-            //   pools.push({
-            //     name: 'previous-bakery',
-            //     staked: +Utils.toTruncFixed(bakeryTransaction, 3),
-            //     loyalityPoints:
-            //       +bakeryTransaction +
-            //       (+bakeryTransaction * config.bakery) / 100,
-            //   });
-            // } else if (k === 9) {
-            //   pools.push({
-            //     name: 'previous-tosdis-staking',
-            //     staked: +Utils.toTruncFixed(result[k], 3),
-            //     loyalityPoints: +result[k] + (+result[k] * config.tosdis) / 100,
-            //   });
-            // }
-            else {
-              console.log('IN ELSE');
-            }
-          }
-        }
-      });
+      //       //   pools.push({
+      //       //     name: 'previous-farming',
+      //       //     staked: +Utils.toTruncFixed(farmingTransaction, 3),
+      //       //     loyalityPoints:
+      //       //       +farmingTransaction +
+      //       //       (+farmingTransaction * config.farming) / 100,
+      //       //   });
+      //       // } else if (k === 8) {
+      //       //   const bakeryCount = +result[k] / totalSupply;
+
+      //       //   const bakeryTransaction = +bakeryCount * totalBalance;
+
+      //       //   pools.push({
+      //       //     name: 'previous-bakery',
+      //       //     staked: +Utils.toTruncFixed(bakeryTransaction, 3),
+      //       //     loyalityPoints:
+      //       //       +bakeryTransaction +
+      //       //       (+bakeryTransaction * config.bakery) / 100,
+      //       //   });
+      //       // } else if (k === 9) {
+      //       //   pools.push({
+      //       //     name: 'previous-tosdis-staking',
+      //       //     staked: +Utils.toTruncFixed(result[k], 3),
+      //       //     loyalityPoints: +result[k] + (+result[k] * config.tosdis) / 100,
+      //       //   });
+      //       // }
+      //       else {
+      //         console.log('IN ELSE');
+      //       }
+      //     }
+      //   }
+      // });
       let points = 0;
       const userStaked = {};
 
@@ -780,8 +840,10 @@ async function getUserBalance(
         points += pools[j].loyalityPoints;
       }
 
-      userStaked.eTokens = Utils.toTruncFixed(points, 3);
+      console.log('user Staked is:', userStaked);
 
+      userStaked.eTokens = Utils.toTruncFixed(points, 3);
+      userStaked.isStaked = isInvested;
       resolve(userStaked);
     } catch (err) {
       console.log('err is:', err);
@@ -873,6 +935,8 @@ UserCtr.fetchLiquidityLocked = async (contractAddress) => {
       const totalSupply = +getTotalSupply.data.result / Math.pow(10, 18);
       const tokenBalance = +getTokenBalance.data.result / Math.pow(10, 18);
 
+      console.log('getTotalSupply', totalSupply);
+
       const data = {
         totalSupply: totalSupply,
         totalBalance: tokenBalance,
@@ -894,7 +958,6 @@ UserCtr.fetchLiquidityLocked = async (contractAddress) => {
 };
 
 UserCtr.checkRedis = async (contractAddress) => {
-  console.log('Check resdis called');
   return new Promise(async (resolve, reject) => {
     try {
       const checkRedisAvalaible = await client.get(
@@ -958,6 +1021,10 @@ UserCtr.getUserBalances = async (req, res) => {
       process.env.LP_APE_ADDRESS
     );
 
+    const getBakeryLiquidityLocked = await UserCtr.fetchLiquidityLocked(
+      process.env.LP_BAKERY
+    );
+
     console.log('getApeTokenLiquidityLocked', getApeTokenLiquidityLocked);
 
     const getPools = await PoolsModel.find({});
@@ -977,7 +1044,9 @@ UserCtr.getUserBalances = async (req, res) => {
           latestBlock,
           getLiquidityLocked.totalSupply,
           getLiquidityLocked.totalBalance,
-          getApeTokenLiquidityLocked
+          getApeTokenLiquidityLocked,
+          getBakeryLiquidityLocked,
+          getLiquidityLocked
         );
         const userBal = JSON.stringify(getBalance);
         getBalance.walletAddress = task.address;
@@ -1307,6 +1376,224 @@ UserCtr.updateUserNetwork = async (req, res) => {
     }
   } catch (err) {
     Utils.echoLog('error in genrating gtroup data   ', err);
+    return res.status(500).json({
+      message: 'DB_ERROR',
+      status: false,
+      err: err.message ? err.message : err,
+    });
+  }
+};
+
+UserCtr.getSecondayWalletAddresses = async (req, res) => {
+  try {
+    const fetchWalletData = await networkModel.findById(req.body.walletId);
+    if (fetchWalletData) {
+      const csvFiles = req.files.csv;
+      const file = csvFiles.path;
+      const fileName = csvFiles.name;
+      const csvData = [];
+      console.log('file is:', csvFiles);
+      const stream = fs.createReadStream(file);
+
+      // const obj = xlsx.parse(file);
+      // const csvFile = [];
+
+      //   for (let i = 1; i < obj[0].data.length; i++) {
+      //     const transactionData = obj[0].data[i];
+      //     let transaction = {
+      //       TxHash: transactionData[0],
+      //       UnixTimeStamp: transactionData[1],
+      //       DateTime: transactionData[2],
+      //       From: transactionData[3],
+      //       To: transactionData[4],
+      //       Value: transactionData[5],
+      //       ContractAddress: transactionData[6],
+      //       TokenName: transactionData[7],
+      //       TokenSymbol: transactionData[8],
+      //     };
+
+      //     console.log('transactionData', transactionData);
+
+      //     const walletAddress = transactionData[3].toLowerCase().trim();
+      //     const fetchUserDetails = UserModel.findOne({
+      //       walletAddress: walletAddress,
+      //     });
+
+      //     if (fetchUserDetails) {
+      //       const fetchSecondartyWallet = await NetworkWalletModel.findOne({
+      //         networkId: fetchWalletData._id,
+      //         userId: { $in: fetchUserDetails._id },
+      //       });
+
+      //       if (fetchSecondartyWallet) {
+      //         transaction[`${fetchWalletData.networkName}`] =
+      //           fetchSecondartyWallet.walletAddress;
+      //       } else {
+      //         transaction[`${fetchWalletData.networkName}`] = '-';
+      //       }
+      //     } else {
+      //       transaction[`${fetchWalletData.networkName}`] = '-';
+      //     }
+      //     csvFile.push(transaction);
+      //   }
+      //   const csv = new ObjectsToCsv(transaction);
+      //   const fileName = `${+new Date()}_${fetchWalletData.networkName}`;
+      //   await csv.toDisk(`./lottery/${fileName}.csv`);
+
+      //   Utils.sendSmapshotEmail(
+      //     `./lottery/${fileName}.csv`,
+      //     fileName,
+      //     `Secondary Wallet Address of user`,
+      //     `Secondary Wallet Address of user`
+      //   );
+      // } else {
+      //   return res.status(400).json({
+      //     message: 'Invalid Wallet Id',
+      //     status: false,
+      //   });
+
+      let csvstream = csv
+        .parseStream(stream, { headers: true })
+        .on('data', async (row) => {
+          // console.log('row is:', row);
+          csvstream.pause();
+
+          const transaction = { ...row };
+
+          csvData.push(transaction);
+
+          // const walletAddress = row['From'].toLowerCase().trim();
+
+          // const fetchUserDetails = await UserModel.findOne({
+          //   walletAddress: walletAddress,
+          // });
+
+          // if (fetchUserDetails) {
+          //   const fetchSecondartyWallet = await NetworkWalletModel.findOne({
+          //     networkId: fetchWalletData._id,
+          //     userId: { $in: [fetchUserDetails._id] },
+          //   });
+
+          //   if (fetchSecondartyWallet) {
+          //     transaction[`${fetchWalletData.networkName}`] =
+          //       fetchSecondartyWallet.walletAddress;
+          //   } else {
+          //     transaction[`${fetchWalletData.networkName}`] = '-';
+          //   }
+          // } else {
+          //   transaction[`${fetchWalletData.networkName}`] = '-';
+          // }
+
+          // csvData.push(transaction);
+
+          csvstream.resume();
+        })
+        .on('end', async () => {
+          console.log('WE are done');
+          for (let i = 0; i < csvData.length; i++) {
+            const row = csvData[i];
+            const walletAddress = row['From'].toLowerCase().trim();
+
+            const fetchUserDetails = await UserModel.findOne({
+              walletAddress: walletAddress,
+            });
+
+            if (fetchUserDetails) {
+              const fetchSecondartyWallet = await NetworkWalletModel.findOne({
+                networkId: fetchWalletData._id,
+                userId: { $in: [fetchUserDetails._id] },
+              });
+
+              if (fetchSecondartyWallet) {
+                csvData[i][`${fetchWalletData.networkName}`] =
+                  fetchSecondartyWallet.walletAddress;
+                if (
+                  fetchWalletData.networkName.toLowerCase().trim() === 'solana'
+                ) {
+                  csvData[i].isValid = await Utils.checkAddressForSolana(
+                    fetchSecondartyWallet.walletAddress
+                  );
+                }
+                csvData[i]['Created At'] = fetchSecondartyWallet.createdAt;
+                csvData[i]['Updated At'] = fetchSecondartyWallet.updatedAt;
+              } else {
+                csvData[i][`${fetchWalletData.networkName}`] = '-';
+                if (
+                  fetchWalletData.networkName.toLowerCase().trim() === 'solana'
+                ) {
+                  csvData[i].isValid = false;
+                }
+                csvData[i]['Created At'] = '-';
+                csvData[i]['Updated At'] = '-';
+              }
+            } else {
+              csvData[i][`${fetchWalletData.networkName}`] = '-';
+              if (
+                fetchWalletData.networkName.toLowerCase().trim() === 'solana'
+              ) {
+                csvData[i].isValid = false;
+              }
+              csvData[i]['Created At'] = '-';
+              csvData[i]['Updated At'] = '-';
+            }
+          }
+
+          const csv = new ObjectsToCsv(csvData);
+          const fileData = `${fileName}_${+new Date()}_${
+            fetchWalletData.networkName
+          }`;
+          await csv.toDisk(`./lottery/${fileName}.csv`);
+
+          Utils.sendSmapshotEmail(
+            `./lottery/${fileName}.csv`,
+            fileData,
+            `Secondary Wallet Address of user Created at ${+new Date()}`,
+            `Secondary Wallet Address of user`,
+            'csv'
+          );
+
+          return res.status(200).json({
+            message: 'Your Request Received',
+            status: true,
+          });
+        })
+        .on('error', function (error) {
+          console.log(error);
+        });
+    } else {
+      return res.status(400).json({
+        message: 'Invalid Wallet Id',
+        status: false,
+      });
+    }
+  } catch (err) {
+    Utils.echoLog('error in genrating gtroup data   ', err);
+    return res.status(500).json({
+      message: 'DB_ERROR',
+      status: false,
+      err: err.message ? err.message : err,
+    });
+  }
+};
+
+UserCtr.listAllUniqueCountries = async (req, res) => {
+  try {
+    const getDistinctRecords = await UserModel.find().distinct('country');
+    if (getDistinctRecords) {
+      return res.status(200).json({
+        message: 'Country List',
+        status: true,
+        data: getDistinctRecords,
+      });
+    } else {
+      return res.status(200).json({
+        message: 'Country List',
+        status: true,
+        data: [],
+      });
+    }
+  } catch (err) {
+    Utils.echoLog('error in genrating country list   ', err);
     return res.status(500).json({
       message: 'DB_ERROR',
       status: false,
