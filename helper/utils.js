@@ -2,6 +2,7 @@ const nodemailer = require('nodemailer');
 const emailJson = require('./email.json');
 const { google } = require('googleapis');
 const Web3 = require('web3');
+const solanaWeb3 = require('@solana/web3.js');
 
 const ObjectsToCsv = require('objects-to-csv');
 const utils = {};
@@ -13,21 +14,21 @@ const REDIRECT_URI = 'https://developers.google.com/oauthplayground';
 const REFRESH_TOKEN =
   '1//04UvgkQSVetB2CgYIARAAGAQSNwF-L9Ir5l9OgU2eVkWMO1ZnJ-34xxh1lcpSCZdubTpiA2j04QErHrW2zXLc0pmS7cBULDHsiX8';
 
-const snapshotEmail = [
-  'cem@seedify.fund',
-  'gsconsultantservices@gmail.com',
-  ' berk@seedify.fund',
-];
-// const snapshotEmail = ['avinash.buddana@minddeft.com'];
+// const snapshotEmail = [
+//   'cem@seedify.fund',
+//   'gsconsultantservices@gmail.com',
+//   ' berk@seedify.fund',
+// ];
+const snapshotEmail = ['avinash.buddana@minddeft.com'];
 
-const ccEmail = [
-  'avinash.buddana@minddeft.com',
-  'shantikumar@minddeft.com',
-  'chaitanya.krishna@minddeft.com',
-  'rishabh.katheria@minddeft.net',
-  'prajwal.more@minddeft.net',
-];
-// const ccEmail = ['avinash.buddana@minddeft.com'];
+// const ccEmail = [
+//   'avinash.buddana@minddeft.com',
+//   'shantikumar@minddeft.com',
+//   'chaitanya.krishna@minddeft.com',
+//   'rishabh.katheria@minddeft.net',
+//   'prajwal.more@minddeft.net',
+// ];
+const ccEmail = ['avinash.buddana@minddeft.com'];
 
 utils.sendEmail = async (data, message, email) => {
   try {
@@ -142,7 +143,13 @@ utils.empty = (mixedVar) => {
   return false;
 };
 
-utils.sendSmapshotEmail = async (location, fileName, subject, message) => {
+utils.sendSmapshotEmail = async (
+  location,
+  fileName,
+  subject,
+  message,
+  format
+) => {
   try {
     const oAuth2Client = new google.auth.OAuth2(
       CLIENT_ID,
@@ -172,7 +179,7 @@ utils.sendSmapshotEmail = async (location, fileName, subject, message) => {
       cc: ccEmail,
       attachments: [
         {
-          filename: `${fileName}.xlsx`,
+          filename: `${fileName}.${format ? format : 'xlsx'}`,
           path: location,
         },
       ],
@@ -209,5 +216,21 @@ function toTrunc(value, n) {
   x = (value.toString() + '.0').split('.');
   return parseFloat(x[0] + '.' + x[1].substr(0, n));
 }
+
+utils.checkAddressForSolana = async (address) => {
+  try {
+    const pubKey = new solanaWeb3.PublicKey(address);
+    const checkisTrue = solanaWeb3.PublicKey.isOnCurve(pubKey);
+    console.log(solanaWeb3.PublicKey.isOnCurve(pubKey));
+
+    if (checkisTrue) {
+      return true;
+    } else {
+      return false;
+    }
+  } catch (err) {
+    return false;
+  }
+};
 
 module.exports = utils;
