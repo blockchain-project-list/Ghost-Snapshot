@@ -221,7 +221,6 @@ utils.checkAddressForSolana = async (address) => {
   try {
     const pubKey = new solanaWeb3.PublicKey(address);
     const checkisTrue = solanaWeb3.PublicKey.isOnCurve(pubKey);
-    console.log(solanaWeb3.PublicKey.isOnCurve(pubKey));
 
     if (checkisTrue) {
       return true;
