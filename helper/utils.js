@@ -14,22 +14,22 @@ const REDIRECT_URI = 'https://developers.google.com/oauthplayground';
 const REFRESH_TOKEN =
   '1//04UvgkQSVetB2CgYIARAAGAQSNwF-L9Ir5l9OgU2eVkWMO1ZnJ-34xxh1lcpSCZdubTpiA2j04QErHrW2zXLc0pmS7cBULDHsiX8';
 
-const snapshotEmail = [
-  'cem@seedify.fund',
-  'gsconsultantservices@gmail.com',
-  ' berk@seedify.fund',
-  'serhat@seedify.fund ',
-];
-// const snapshotEmail = ['avinash.buddana@minddeft.com'];
+// const snapshotEmail = [
+//   'cem@seedify.fund',
+//   'gsconsultantservices@gmail.com',
+//   ' berk@seedify.fund',
+//   'serhat@seedify.fund ',
+// ];
+const snapshotEmail = ['avinash.buddana@minddeft.com'];
 
-const ccEmail = [
-  'avinash.buddana@minddeft.com',
-  'shantikumar@minddeft.com',
-  'chaitanya.krishna@minddeft.com',
-  'rishabh.katheria@minddeft.net',
-  'prajwal.more@minddeft.net',
-];
-// const ccEmail = ['avinash.buddana@minddeft.com'];
+// const ccEmail = [
+//   'avinash.buddana@minddeft.com',
+//   'shantikumar@minddeft.com',
+//   'chaitanya.krishna@minddeft.com',
+//   'rishabh.katheria@minddeft.net',
+//   'prajwal.more@minddeft.net',
+// ];
+const ccEmail = ['avinash.buddana@minddeft.com'];
 
 utils.sendEmail = async (data, message, email) => {
   try {
@@ -231,6 +231,47 @@ utils.checkAddressForSolana = async (address) => {
   } catch (err) {
     return false;
   }
+};
+
+utils.sendFromalEmail = async (text, subject) => {
+  try {
+    const oAuth2Client = new google.auth.OAuth2(
+      CLIENT_ID,
+      CLEINT_SECRET,
+      REDIRECT_URI
+    );
+    oAuth2Client.setCredentials({ refresh_token: REFRESH_TOKEN });
+    const accessToken = await oAuth2Client.getAccessToken();
+
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        type: 'OAuth2',
+        user: 'snapshot@seedify.fund',
+        clientId: CLIENT_ID,
+        clientSecret: CLEINT_SECRET,
+        refreshToken: REFRESH_TOKEN,
+        accessToken: accessToken,
+      },
+    });
+
+    let mailContent = {
+      from: 'snapshot@seedify.fund',
+      to: snapshotEmail,
+      subject: subject,
+      text: text,
+      cc: ccEmail,
+    };
+
+    transporter.sendMail(mailContent, function (error, data) {
+      if (error) {
+        console.log('Unable to send mail', error);
+      }
+      if (data) {
+        console.log('Email send successfully');
+      }
+    });
+  } catch (err) {}
 };
 
 module.exports = utils;
