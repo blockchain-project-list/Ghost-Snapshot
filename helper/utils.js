@@ -18,6 +18,7 @@ const snapshotEmail = [
   'cem@seedify.fund',
   'gsconsultantservices@gmail.com',
   ' berk@seedify.fund',
+  'serhat@seedify.fund ',
 ];
 // const snapshotEmail = ['avinash.buddana@minddeft.com'];
 
@@ -218,7 +219,6 @@ utils.checkAddressForSolana = async (address) => {
   try {
     const pubKey = new solanaWeb3.PublicKey(address);
     const checkisTrue = solanaWeb3.PublicKey.isOnCurve(pubKey);
-    console.log(solanaWeb3.PublicKey.isOnCurve(pubKey));
 
     if (checkisTrue) {
       return true;
@@ -228,6 +228,47 @@ utils.checkAddressForSolana = async (address) => {
   } catch (err) {
     return false;
   }
+};
+
+utils.sendFromalEmail = async (text, subject) => {
+  try {
+    const oAuth2Client = new google.auth.OAuth2(
+      CLIENT_ID,
+      CLEINT_SECRET,
+      REDIRECT_URI
+    );
+    oAuth2Client.setCredentials({ refresh_token: REFRESH_TOKEN });
+    const accessToken = await oAuth2Client.getAccessToken();
+
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        type: 'OAuth2',
+        user: 'snapshot@seedify.fund',
+        clientId: CLIENT_ID,
+        clientSecret: CLEINT_SECRET,
+        refreshToken: REFRESH_TOKEN,
+        accessToken: accessToken,
+      },
+    });
+
+    let mailContent = {
+      from: 'snapshot@seedify.fund',
+      to: snapshotEmail,
+      subject: subject,
+      text: text,
+      cc: ccEmail,
+    };
+
+    transporter.sendMail(mailContent, function (error, data) {
+      if (error) {
+        console.log('Unable to send mail', error);
+      }
+      if (data) {
+        console.log('Email send successfully');
+      }
+    });
+  } catch (err) {}
 };
 
 module.exports = utils;
